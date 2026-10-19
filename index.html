@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iTrack — webcam eye tracking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0e13; --card:#121821; --card2:#18202b; --ink:#e9eef4; --dim:#8b97a5; --faint:#5b6673;
+    --accent:#8fc8e8; --accent2:#5fa9d6; --warm:#e8c86f; --ok:#7fd6a2; --bad:#e8896f; --line:rgba(233,238,244,0.09); --r:12px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.5}
+  body.lock{overflow:hidden}
+  a{color:var(--accent)}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  header{display:flex;align-items:center;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line)}
+  .logo{font-weight:600;font-size:20px;letter-spacing:-.01em}
+  .logo span{color:var(--accent)}
+  .tag{color:var(--dim);font-size:13px}
+  .steps{margin-left:auto;display:flex;gap:6px}
+  .step{font-size:12px;color:var(--faint);padding:5px 12px;border-radius:99px;border:1px solid var(--line)}
+  .step.on{color:var(--ink);border-color:var(--accent2);background:rgba(143,200,232,0.08)}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px 28px 120px}
+  .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+  .card h2{font-size:15px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+  .card h2 .n{width:24px;height:24px;border-radius:50%;background:rgba(143,200,232,0.14);color:var(--accent);font-size:12px;display:grid;place-items:center}
+  .card .sub{color:var(--dim);font-size:13px;margin-bottom:14px}
+  .col{display:flex;flex-direction:column;gap:20px}
+  .drop{border:1.5px dashed rgba(233,238,244,0.18);border-radius:10px;padding:26px;text-align:center;color:var(--dim);cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);color:var(--ink);background:rgba(143,200,232,0.05)}
+  .drop b{color:var(--ink);font-weight:500}
+  .files{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+  .file{display:flex;align-items:center;gap:12px;background:var(--card2);border-radius:8px;padding:6px 8px}
+  .file .th{width:64px;height:40px;border-radius:5px;background:#000;overflow:hidden;flex:0 0 auto;display:grid;place-items:center}
+  .file .th img,.file .th video{width:100%;height:100%;object-fit:cover}
+  .file .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .file .meta{color:var(--dim);font-size:12px}
+  .ib{background:none;border:0;color:var(--dim);cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px}
+  .ib:hover{color:var(--ink);background:rgba(233,238,244,0.06)}
+  .cam{position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:16/9}
+  .cam canvas{width:100%;height:100%;display:block}
+  .cam .off{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--dim)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .chip{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--card2);color:var(--dim)}
+  .chip.ok{color:var(--ok)} .chip.bad{color:var(--bad)} .chip.warm{color:var(--warm)}
+  .row{display:flex;align-items:center;gap:14px;padding:9px 0;border-top:1px solid var(--line)}
+  .row:first-of-type{border-top:0}
+  .row label{flex:1;color:var(--ink)}
+  .row label small{display:block;color:var(--dim);font-size:12px}
+  .row .ctl{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+  .row .val{min-width:44px;text-align:right;color:var(--dim);font-size:12px}
+  input[type=range]{-webkit-appearance:none;width:150px;height:4px;border-radius:2px;background:rgba(233,238,244,0.12);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer}
+  select{background:var(--card2);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;padding:6px 10px;border-radius:8px;outline:none;max-width:240px}
+  .sw{position:relative;width:40px;height:22px;flex:0 0 auto}
+  .sw input{opacity:0;width:0;height:0}
+  .sw span{position:absolute;inset:0;border-radius:99px;background:rgba(233,238,244,0.14);cursor:pointer;transition:.15s}
+  .sw span::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+  .sw input:checked+span{background:var(--accent2)}
+  .sw input:checked+span::after{transform:translateX(18px)}
+  .seg{display:inline-flex;background:var(--card2);border-radius:9px;padding:3px}
+  .seg button{background:none;border:0;color:var(--dim);font:inherit;font-size:13px;padding:6px 12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--accent2);color:#06121b}
+  .btn{background:var(--card2);border:1px solid var(--line);color:var(--ink);font:inherit;font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn:disabled{opacity:.4;cursor:default}
+  details{margin-top:4px}
+  details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:8px 0;list-style:none}
+  details summary::before{content:'▸ ';}
+  details[open] summary::before{content:'▾ ';}
+  .note{color:var(--dim);font-size:12px;margin-top:6px}
+  .startbar{position:fixed;left:0;right:0;bottom:0;background:rgba(11,14,19,0.92);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;gap:18px;z-index:5}
+  .checks{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-size:13px}
+  .checks .ok{color:var(--ok)}
+  .go{margin-left:auto;background:var(--accent);color:#06121b;border:0;font:inherit;font-weight:600;font-size:16px;padding:13px 38px;border-radius:10px;cursor:pointer}
+  .go:hover{background:#a6d6f0}
+  .go:disabled{background:rgba(233,238,244,0.12);color:var(--faint);cursor:default}
+  #log{color:var(--dim);font-size:12px;max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* results */
+  #results{display:none}
+  .rgrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px}
+  @media (max-width:980px){.rgrid{grid-template-columns:1fr}}
+  .rlist .file{cursor:pointer}
+  .rlist .file.sel{outline:1.5px solid var(--accent2)}
+  #view{position:relative;background:#000;border-radius:10px;overflow:hidden;height:calc(100vh - 260px);min-height:360px}
+  #view img,#view video,#view canvas{position:absolute}
+  #ov{pointer-events:none}
+  .kv{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+  .kv:first-child{border-top:0}
+  .kv span:last-child{color:var(--dim)}
+  .tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  /* stage */
+  #stage{position:fixed;inset:0;background:#000;display:none;cursor:none;z-index:20}
+  #stage.on{display:block}
+  #stage img,#stage video{position:absolute}
+  #sc{position:absolute;inset:0;width:100%;height:100%}
+  #cap{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);color:#aab4c0;font-size:18px;text-align:center;max-width:70%;pointer-events:none;opacity:.85}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">i<span>Track</span></div>
+  <div class="tag">Webcam eye tracking in your browser</div>
+  <div class="steps"><div class="step on" id="st1">Setup</div><div class="step" id="st2">Calibrate &amp; track</div><div class="step" id="st3">Results</div></div>
+</header>
+
+<div class="wrap" id="setup">
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <h2><span class="n">1</span>Media</h2>
+        <div class="sub">Images and videos, shown in this order.</div>
+        <div class="drop" id="drop"><b>Drop files here</b> or click to choose<br><small>JPG, PNG, WebP, MP4, WebM …</small></div>
+        <div class="files" id="files"></div>
+      </div>
+      <div class="card">
+        <h2><span class="n">3</span>Session</h2>
+        <div class="sub">How the session runs. The defaults work well.</div>
+        <div id="session"></div>
+        <details id="adv"><summary>Advanced</summary><div id="advanced"></div></details>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2><span class="n">2</span>Camera</h2>
+        <div class="sub">Sit about an arm's length from the screen, face in the oval, even light on your face.</div>
+        <div class="cam"><canvas id="cv"></canvas><div class="off" id="camoff"><div><p style="margin-bottom:12px">The camera is off.</p><button class="btn" id="bcam">Turn on camera</button></div></div></div>
+        <div class="chips" id="chips"></div>
+        <div id="camctl" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <h2>How it works</h2>
+        <div class="sub" style="margin-bottom:0">Press <b>Start</b>. The screen goes fullscreen and a voice guides you: follow the dot with your eyes, then keep your eyes on it while you turn your head a little. After a short accuracy check your media plays and iTrack records where you look. Press <b>Esc</b> at any time to stop. Nothing is uploaded: camera and files stay in this browser.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="results">
+  <div class="rgrid">
+    <div class="col">
+      <div class="card"><h2>Recorded</h2><div class="files rlist" id="rlist"></div></div>
+      <div class="card" id="rstats"></div>
+      <div class="card">
+        <h2>Export</h2>
+        <div class="tools" style="margin:8px 0 0"><button class="btn" id="xcsv">CSV</button><button class="btn" id="xjson">Session JSON</button><button class="btn" id="xpng">PNG</button></div>
+        <div class="note">CSV: every gaze sample and the fixations. JSON: the whole session, opens here again. PNG: this view at full media resolution.</div>
+      </div>
+      <div class="card">
+        <div class="tools" style="margin:0"><button class="btn" id="again">Run again</button><button class="btn" id="back">Back to setup</button></div>
+        <div class="note">Run again keeps the calibration if you have not moved.</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="tools" id="rtools"></div>
+        <div id="view"><canvas id="ov"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="startbar" id="bar">
+  <div class="checks" id="checks"></div>
+  <div id="log"></div>
+  <button class="go" id="go" disabled>Start</button>
+</div>
+
+<div id="stage"><canvas id="sc"></canvas><div id="cap"></div></div>
+<video id="cam" playsinline muted style="display:none"></video>
+<input id="fin" type="file" multiple accept="image/*,video/*">
+<input id="jin" type="file" accept=".json,application/json">
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════════════
+   iTrack — webcam eye tracking in the browser
+
+   Setup (media, camera, session settings) → Start → a voice-guided,
+   automatic calibration (follow the dot; keep the eyes on it while turning
+   the head) → a short accuracy check → the media play in sequence while the
+   gaze is recorded → results: heatmaps, scanpaths, CSV / JSON / PNG.
+
+   Tracking (from the iTrack experiments v001–v004, see history/):
+   - MediaPipe Face Landmarker (Apache-2.0): 478 landmarks with both irises
+   - head crop: the face is followed as a region of the full-resolution
+     camera frame, cut out and enlarged before the landmarks are found
+   - eye crops: each eye levelled and enlarged from the full frame, the
+     iris centre refined as the centroid of the darkest pixels in the eye
+     opening, mixed with the landmark iris
+   - head pose from the landmarks (x along the eye corners, y towards the
+     forehead); yaw, pitch, roll, position, scale - One Euro smoothed
+   - model: the EyeTrax feature set (161 landmarks in the head frame, MIT,
+     github.com/ck-zhang/eyetrax) or the iris offset, plus the head pose;
+     ridge regression on standardised features; head compensation is
+     learned from the head sweep (target fixed, head moving)
+   - calibration targets: fixation points (the dot stops, pulses, shrinks),
+     a smooth-pursuit Lissajous (the eye's lag subtracted), a head sweep
+   - smoothing One Euro or Kalman (noise from the validation)
+   - blinks: eye aspect ratio below 0.8 x its running mean, or blendshape
+   ═══════════════════════════════════════════════════════════════════════ */
+'use strict';
+const $ = (id) => document.getElementById(id);
+const VERSION = '1.0.0';
+const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+/* ── settings ── */
+const OPT_DEF = {
+  imgDur: 5, mute: true, gap: 0.5, drift: true, showGaze: false,
+  calib: 'standard', headComp: true, reuse: false,
+  voice: true, lang: (navigator.language || 'en').startsWith('de') ? 'de' : 'en', voiceName: '', rate: 1, captions: false,
+  camId: '', camRes: 'max', fps30: false, crop: true, cropRes: 512, refine: 0.5,
+  ft: 'rich', lam10: 0, filter: 'euro', smooth: 0.6, kq: 1.3, lag: 100,
+  radius: 45, disp: 70, minFix: 100, win: 1.5, heat: true, path: true, raw: false, alpha: 0.65,
+};
+const CALIB = {                                       // presets: fixation points, rounds, pursuit s, head sweep s
+  quick: { pts: 5, rounds: 1, pursuit: 6, sweep: 8 },
+  standard: { pts: 9, rounds: 1, pursuit: 8, sweep: 10 },
+  thorough: { pts: 9, rounds: 2, pursuit: 12, sweep: 12 },
+};
+const S = { files: [], opt: { ...OPT_DEF }, model: null, rec: [], sel: 0, page: 'setup' };
+try { Object.assign(S.opt, JSON.parse(localStorage.getItem('itrack.opt') || '{}')); } catch (e) { /* storage off */ }
+const saveOpt = () => { try { localStorage.setItem('itrack.opt', JSON.stringify(S.opt)); } catch (e) { /* storage off */ } };
+const savedModel = () => { try { return JSON.parse(localStorage.getItem('itrack.model') || 'null'); } catch (e) { return null; } };
+const storeModel = () => { try { localStorage.setItem('itrack.model', JSON.stringify({ ...S.model, saved: new Date().toISOString() })); } catch (e) { /* storage off */ } };
+function log(t) { $('log').innerHTML = t; $('log').title = $('log').textContent; }
+
+/* ── voice ── */
+const T = {
+  en: {
+    intro: 'Welcome to iTrack. Sit comfortably and keep your head still. Follow the dot with your eyes.',
+    noface: "I can't see your face. Please look at the screen.",
+    pursuit: 'Now follow the dot as it moves.',
+    sweep: 'Keep your eyes on the dot, and move only your head.',
+    left: 'Slowly turn your head to the left.', right: 'Now to the right.', mid: 'Back to the middle.', up: 'Tilt your head up.', down: 'And down.',
+    check: 'Almost done. Look at the dot once more.',
+    good: 'Calibration done. The accuracy is good.', fair: 'Calibration done. The accuracy is fair.',
+    poor: 'The accuracy is low. Let us calibrate once more. Keep your head still.',
+    start: 'The eye tracking starts now. Just look at the screen naturally.',
+    done: 'Finished. Thank you.', stop: 'Stopped.',
+  },
+  de: {
+    intro: 'Willkommen bei iTrack. Setz dich bequem hin und halte den Kopf ruhig. Folge dem Punkt mit den Augen.',
+    noface: 'Ich sehe dein Gesicht nicht. Bitte schau auf den Bildschirm.',
+    pursuit: 'Jetzt folge dem Punkt, während er sich bewegt.',
+    sweep: 'Lass die Augen auf dem Punkt und bewege nur den Kopf.',
+    left: 'Dreh den Kopf langsam nach links.', right: 'Jetzt nach rechts.', mid: 'Zurück zur Mitte.', up: 'Neig den Kopf nach oben.', down: 'Und nach unten.',
+    check: 'Fast geschafft. Schau noch einmal auf den Punkt.',
+    good: 'Kalibrierung fertig. Die Genauigkeit ist gut.', fair: 'Kalibrierung fertig. Die Genauigkeit ist in Ordnung.',
+    poor: 'Die Genauigkeit ist gering. Wir kalibrieren noch einmal. Halte den Kopf ruhig.',
+    start: 'Jetzt beginnt die Messung. Schau einfach ganz natürlich auf den Bildschirm.',
+    done: 'Fertig. Danke.', stop: 'Abgebrochen.',
+  },
+};
+const VOICES = () => (window.speechSynthesis ? speechSynthesis.getVoices() : []);
+function pickVoice() {
+  const V = VOICES(), lang = S.opt.lang;
+  return V.find((v) => v.name === S.opt.voiceName && v.lang.startsWith(lang)) || V.find((v) => v.lang.startsWith(lang) && /natural|neural|online/i.test(v.name)) || V.find((v) => v.lang.startsWith(lang)) || null;
+}
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { if (S.page === 'setup') buildSession(); };
+// speak a key (or text); resolves when spoken (with a length-based fallback); captions if wanted or no voice
+function say(key) {
+  const text = T[S.opt.lang][key] || key;
+  const cap = $('cap');
+  if (S.opt.captions || !S.opt.voice || !window.speechSynthesis) cap.textContent = text;
+  if (!S.opt.voice || !window.speechSynthesis) return wait(Math.min(5000, 900 + text.length * 45)).then(() => { if (cap.textContent === text) cap.textContent = ''; });
+  return new Promise((res) => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text), v = pickVoice();
+    if (v) u.voice = v; u.lang = v ? v.lang : S.opt.lang; u.rate = S.opt.rate;
+    let done = false; const fin = () => { if (done) return; done = true; if (cap.textContent === text) cap.textContent = ''; res(); };
+    u.onend = fin; u.onerror = fin;
+    setTimeout(fin, 2500 + text.length * 90 / S.opt.rate);
+    speechSynthesis.speak(u);
+  });
+}
+
+/* ── camera + face landmarkers (full frame, head crop) ── */
+const CAM = { on: false, ready: false, fl: null, flC: null, video: $('cam'), lastT: -1, lm: null, list: [], res: null };
+const RES = { max: [7680, 4320], '2160': [3840, 2160], '1440': [2560, 1440], '1080': [1920, 1080], '720': [1280, 720] };
+const rng = (c) => (c ? `${c.min ?? '?'}–${c.max ?? '?'}` : '?');
+async function loadVision() { try { return await import(MP + '/vision_bundle.mjs'); } catch (e) { return await import(MP + '/+esm'); } }
+async function openCam() {
+  if (CAM.video.srcObject) { for (const t of CAM.video.srcObject.getTracks()) t.stop(); CAM.video.srcObject = null; }
+  const [w, h] = RES[S.opt.camRes] || RES.max, v = { width: { ideal: w }, height: { ideal: h } };
+  if (S.opt.fps30) v.frameRate = { ideal: 30 };
+  if (S.opt.camId) v.deviceId = { exact: S.opt.camId }; else v.facingMode = 'user';
+  let st;
+  try { st = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); }
+  catch (e) { if (S.opt.camId && e.name === 'OverconstrainedError') { S.opt.camId = ''; saveOpt(); delete v.deviceId; st = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); } else throw e; }
+  const tr = st.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {};
+  const want = S.opt.camRes === 'max' && cap.width ? [cap.width.max, cap.height.max] : [w, h];
+  let se = tr.getSettings ? tr.getSettings() : {};
+  if (cap.width && se.width < Math.min(want[0], cap.width.max)) {
+    const tw = Math.min(want[0], cap.width.max), th = Math.min(want[1], cap.height.max);
+    try { await tr.applyConstraints({ width: { exact: tw }, height: { exact: th } }); }
+    catch (e) { log(`The camera refused ${tw} × ${th}: ${e.name}${e.constraint ? ' (' + e.constraint + ')' : ''}`); try { await tr.applyConstraints({ width: { ideal: tw }, height: { ideal: th } }); } catch (e2) { /* keep */ } }
+  }
+  CAM.video.srcObject = st; await CAM.video.play();
+  await new Promise((r) => (CAM.video.videoWidth ? r() : (CAM.video.onloadedmetadata = r)));
+  se = tr.getSettings ? tr.getSettings() : se;
+  CAM.res = { w: CAM.video.videoWidth, h: CAM.video.videoHeight, fps: se.frameRate || 0, maxW: cap.width ? cap.width.max : null, maxH: cap.height ? cap.height.max : null, fpsR: rng(cap.frameRate), label: tr.label };
+  ROI.ok = false;
+  try { CAM.list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput'); } catch (e) { CAM.list = []; }
+}
+async function startCam() {
+  if (CAM.on) return;
+  $('bcam').disabled = true; log('Starting the camera …');
+  try { await openCam(); CAM.on = true; $('camoff').style.display = 'none'; }
+  catch (e) { log(`Camera: ${e.message}. Allow camera access; opened as a local file some browsers need http://localhost.`); $('bcam').disabled = false; return; }
+  log('Loading the face tracker (about 4 MB, once) …'); refresh();
+  try {
+    const V = await loadVision(), vis = V.FilesetResolver ? V : V.default;
+    const fs = await vis.FilesetResolver.forVisionTasks(MP + '/wasm');
+    const mk = async () => {
+      const o = (delegate) => ({ baseOptions: { modelAssetPath: MODEL, delegate }, runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true });
+      try { return await vis.FaceLandmarker.createFromOptions(fs, o('GPU')); } catch (e) { return await vis.FaceLandmarker.createFromOptions(fs, o('CPU')); }
+    };
+    CAM.fl = await mk(); CAM.flC = await mk();
+    CAM.ready = true; log('Camera ready.');
+  } catch (e) { log(`Face tracker failed: ${e.message}`); }
+  buildCamCtl(); refresh();
+}
+
+/* ── landmark sets ── */
+const EYES = [{ a: 33, b: 133, t: 159, bo: 145, iris: [468, 469, 470, 471, 472] }, { a: 362, b: 263, t: 386, bo: 374, iris: [473, 474, 475, 476, 477] }];
+// EyeTrax (MIT, (c) 2024 ck-zhang): left eye region, right eye region, face reference points - 161 landmarks
+const RICH = [107, 66, 105, 63, 70, 55, 65, 52, 53, 46, 468, 469, 470, 471, 472, 133, 33, 173, 157, 158, 159, 160, 161, 246, 155, 154, 153, 145, 144, 163, 7, 243, 190, 56, 28, 27, 29, 30, 247, 130, 25, 110, 24, 23, 22, 26, 112, 244, 189, 221, 222, 223, 224, 225, 113, 226, 31, 228, 229, 230, 231, 232, 233, 193, 245, 128, 121, 120, 119, 118, 117, 111, 35, 124, 143, 156,
+  336, 296, 334, 293, 300, 285, 295, 282, 283, 276, 473, 476, 475, 474, 477, 362, 263, 398, 384, 385, 386, 387, 388, 466, 382, 381, 380, 374, 373, 390, 249, 463, 414, 286, 258, 257, 259, 260, 467, 359, 255, 339, 254, 253, 252, 256, 341, 464, 413, 441, 442, 443, 444, 445, 342, 446, 261, 448, 449, 450, 451, 452, 453, 417, 465, 357, 350, 349, 348, 347, 346, 340, 265, 353, 372, 383,
+  4, 10, 151, 9, 152, 234, 454, 58, 288];
+
+/* ── head crop ── */
+const ROI = { ok: false, x: 0, y: 0, s: 0 };
+const CROP = document.createElement('canvas');
+function updateRoi(P, W, H) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const p of P) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+  const s = Math.max(x1 - x0, y1 - y0) * 1.6, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  if (!ROI.ok) Object.assign(ROI, { ok: true, x: cx - s / 2, y: cy - s / 2, s });
+  else { const a = 0.35, ns = ROI.s + a * (s - ROI.s), ox = ROI.x + ROI.s / 2, oy = ROI.y + ROI.s / 2, nx = ox + a * (cx - ox), ny = oy + a * (cy - oy); Object.assign(ROI, { x: nx - ns / 2, y: ny - ns / 2, s: ns }); }
+  if (ROI.s < 40 || ROI.s > 3 * Math.max(W, H)) ROI.ok = false;
+}
+
+/* ── eye crops and iris refinement ── */
+const EW = 120, EH = 60;
+const EC = [0, 1].map(() => { const c = document.createElement('canvas'); c.width = EW; c.height = EH; return c; });
+const ECX = EC.map((c) => c.getContext('2d'));
+function refineIris(k, P, E) {
+  const v = CAM.video, A = P(E.a), B = P(E.b), Tt = P(E.t), D = P(E.bo);
+  const ax = B[0] - A[0], ay = B[1] - A[1], w = Math.hypot(ax, ay) || 1, ang = Math.atan2(ay, ax), mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+  const sc = EW / (1.5 * w), g = ECX[k];
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#808080'; g.fillRect(0, 0, EW, EH);
+  g.setTransform(sc, 0, 0, sc, EW / 2, EH / 2); g.rotate(-ang); g.translate(-mx, -my); g.drawImage(v, 0, 0); g.setTransform(1, 0, 0, 1, 0, 0);
+  const toC = (p) => { const dx = p[0] - mx, dy = p[1] - my, c = Math.cos(-ang), s = Math.sin(-ang); return [EW / 2 + sc * (dx * c - dy * s), EH / 2 + sc * (dx * s + dy * c)]; };
+  const tc = toC(Tt), dc = toC(D), cy = (tc[1] + dc[1]) / 2, ry = Math.max(2, Math.abs(dc[1] - tc[1]) / 2 * 0.9), rx = sc * w / 2 * 0.85, cxm = (toC(A)[0] + toC(B)[0]) / 2;
+  if (ry < 3) return null;
+  const im = g.getImageData(0, 0, EW, EH).data, vals = [], inside = (x, y) => ((x - cxm) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+  for (let y = 0; y < EH; y++) for (let x = 0; x < EW; x++) if (inside(x, y)) { const i = (y * EW + x) * 4; vals.push(0.299 * im[i] + 0.587 * im[i + 1] + 0.114 * im[i + 2]); }
+  if (vals.length < 30) return null;
+  const sorted = [...vals].sort((a, b) => a - b), thr = sorted[Math.floor(sorted.length * 0.25)], lo = sorted[0];
+  let sx = 0, sy = 0, sw = 0;
+  for (let y = 0; y < EH; y++) for (let x = 0; x < EW; x++) if (inside(x, y)) {
+    const i = (y * EW + x) * 4, I = 0.299 * im[i] + 0.587 * im[i + 1] + 0.114 * im[i + 2], wt = Math.max(0, thr - I) / Math.max(1, thr - lo);
+    sx += wt * x; sy += wt * y; sw += wt;
+  }
+  if (sw < 1) return null;
+  const qx = sx / sw, qy = sy / sw, dx = (qx - EW / 2) / sc, dy = (qy - EH / 2) / sc, c = Math.cos(ang), s = Math.sin(ang);
+  return { p: [mx + dx * c - dy * s, my + dx * s + dy * c] };
+}
+
+/* ── features ── */
+const EUR = {}, EARH = [];
+function eyeFeat(P, E, iris) {
+  const A = P(E.a), B = P(E.b), Tt = P(E.t), D = P(E.bo);
+  const ax = B[0] - A[0], ay = B[1] - A[1], w = Math.hypot(ax, ay) || 1, ux = ax / w, uy = ay / w, nx = -uy, ny = ux;
+  const dx = iris[0] - (A[0] + B[0]) / 2, dy = iris[1] - (A[1] + B[1]) / 2;
+  return { ex: (dx * ux + dy * uy) / w, ey: (dx * nx + dy * ny) / w, ear: ((D[0] - Tt[0]) * nx + (D[1] - Tt[1]) * ny) / w };
+}
+function features(lm, bs, now) {
+  const W = CAM.video.videoWidth, H = CAM.video.videoHeight;
+  const P = (i) => [lm[i].x * W, lm[i].y * H], P3 = (i) => [lm[i].x * W, lm[i].y * H, lm[i].z * W];
+  const eyes = EYES.map((E, k) => {
+    let ix = 0, iy = 0; for (const j of E.iris) { const p = P(j); ix += p[0]; iy += p[1]; } ix /= E.iris.length; iy /= E.iris.length;
+    const r = S.opt.refine > 0 ? refineIris(k, P, E) : null, m = r ? S.opt.refine : 0;
+    return eyeFeat(P, E, [ix + m * (r ? r.p[0] - ix : 0), iy + m * (r ? r.p[1] - iy : 0)]);
+  });
+  const L = P3(33), Rr = P3(263), Tp = P3(10), C = [(L[0] + Rr[0]) / 2, (L[1] + Rr[1]) / 2, (L[2] + Rr[2]) / 2];
+  const nrm = (v) => { const n = Math.hypot(...v) || 1e-9; return v.map((x) => x / n); };
+  const X = nrm([Rr[0] - L[0], Rr[1] - L[1], Rr[2] - L[2]]);
+  let Y = [Tp[0] - C[0], Tp[1] - C[1], Tp[2] - C[2]]; const d = Y[0] * X[0] + Y[1] * X[1] + Y[2] * X[2]; Y = nrm([Y[0] - d * X[0], Y[1] - d * X[1], Y[2] - d * X[2]]);
+  const Z = nrm([X[1] * Y[2] - X[2] * Y[1], X[2] * Y[0] - X[0] * Y[2], X[0] * Y[1] - X[1] * Y[0]]);
+  const ipd = Math.hypot(Rr[0] - L[0], Rr[1] - L[1], Rr[2] - L[2]) || 1;
+  const sm = (k, v) => (EUR[k] || (EUR[k] = oneEuro(1.5, 0.3)))(v, now);
+  const yaw = sm('yaw', Math.atan2(Z[0], -Z[2])), pitch = sm('pitch', Math.atan2(Z[1], -Z[2])), roll = sm('roll', Math.atan2(X[1], X[0]));
+  const hx = sm('hx', C[0] / W), hy = sm('hy', C[1] / H), hs = sm('hs', ipd / W);
+  const dist = (W / (2 * Math.tan(Math.PI / 6))) * 6.3 / ipd;
+  const rich = new Float32Array(RICH.length * 3);
+  RICH.forEach((j, n) => { const p = P3(j), q = [p[0] - C[0], p[1] - C[1], p[2] - C[2]]; rich[n * 3] = (q[0] * X[0] + q[1] * X[1] + q[2] * X[2]) / ipd; rich[n * 3 + 1] = (q[0] * Y[0] + q[1] * Y[1] + q[2] * Y[2]) / ipd; rich[n * 3 + 2] = (q[0] * Z[0] + q[1] * Z[1] + q[2] * Z[2]) / ipd; });
+  const ear = (eyes[0].ear + eyes[1].ear) / 2;
+  let blink = EARH.length >= 15 ? ear < 0.8 * EARH.reduce((a, b) => a + b, 0) / EARH.length : ear < 0.2;
+  if (!blink) { EARH.push(ear); if (EARH.length > 50) EARH.shift(); }
+  if (bs) for (const c of bs.categories) if ((c.categoryName === 'eyeBlinkLeft' || c.categoryName === 'eyeBlinkRight') && c.score > 0.5) blink = true;
+  return { ex: (eyes[0].ex + eyes[1].ex) / 2, ey: (eyes[0].ey + eyes[1].ey) / 2, yaw, pitch, roll, hx, hy, hs, dist, head: [yaw, pitch, roll, hx, hy, hs], rich, blink, lm };
+}
+function detect(now) {
+  const v = CAM.video, W = v.videoWidth, H = v.videoHeight;
+  let res = null, lm = null;
+  if (S.opt.crop && ROI.ok) {
+    const n = S.opt.cropRes; if (CROP.width !== n) { CROP.width = n; CROP.height = n; }
+    const g = CROP.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, n, n);
+    g.drawImage(v, ROI.x, ROI.y, ROI.s, ROI.s, 0, 0, n, n);
+    res = CAM.flC.detectForVideo(CROP, now);
+    const c = res.faceLandmarks && res.faceLandmarks[0];
+    if (c && c.length >= 478) lm = c.map((p) => ({ x: (ROI.x + p.x * ROI.s) / W, y: (ROI.y + p.y * ROI.s) / H, z: p.z * ROI.s / W }));
+    else ROI.ok = false;
+  }
+  if (!lm) { res = CAM.fl.detectForVideo(v, now); const c = res.faceLandmarks && res.faceLandmarks[0]; if (c && c.length >= 478) lm = c; }
+  if (!lm) { ROI.ok = false; return null; }
+  if (S.opt.crop) updateRoi(lm.map((p) => [p.x * W, p.y * H]), W, H);
+  return features(lm, res.faceBlendshapes && res.faceBlendshapes[0], now);
+}
+
+/* ── the gaze model (ridge on standardised features) ── */
+function eyeBasis(f, quad) { const x = f.ex, y = f.ey, b = [x, y, x * y]; if (quad) b.push(x * x, y * y); return b; }
+function fvec(m, f) { const b = m.ft === 'rich' ? Array.from(f.rich) : eyeBasis(f, m.quad); return m.head ? b.concat(f.head) : b; }
+function solveN(A, Bs) {
+  const n = A.length, k = Bs.length, M = A.map((r, i) => [...r, ...Bs.map((b) => b[i])]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    const dg = M[c][c] || 1e-12;
+    for (let r = 0; r < n; r++) if (r !== c) { const fct = M[r][c] / dg; if (fct) for (let q = c; q < n + k; q++) M[r][q] -= fct * M[c][q]; }
+  }
+  return Bs.map((_, j) => M.map((r, i) => r[n + j] / (M[i][i] || 1e-12)));
+}
+const median = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
+function fit(samples) {
+  const pts = samples.filter((s) => s.kind === 'point'), byT = new Map(), keep = samples.filter((s) => s.kind !== 'point');
+  for (const s of pts) { const k = s.x.toFixed(3) + ',' + s.y.toFixed(3); if (!byT.has(k)) byT.set(k, []); byT.get(k).push(s); }
+  for (const g of byT.values()) {
+    const ok = (key) => { const v = g.map((s) => s.f[key]), m = median(v), mad = median(v.map((x) => Math.abs(x - m))) || 1e-4; return (s) => Math.abs(s.f[key] - m) <= 3 * 1.4826 * mad; };
+    const o0 = ok('ex'), o1 = ok('ey');
+    for (const s of g) if (o0(s) && o1(s)) keep.push(s);
+  }
+  if (keep.length < 20) return null;
+  const m = { ft: S.opt.ft, quad: byT.size >= 9 || keep.some((s) => s.kind === 'pursuit'), head: S.opt.headComp && keep.some((s) => s.kind === 'sweep'), off: [0, 0], err: null, Rn: null, nTargets: byT.size };
+  const X = keep.map((s) => fvec(m, s.f)), P = X[0].length;
+  const mu = new Float64Array(P), sd = new Float64Array(P);
+  for (const r of X) for (let j = 0; j < P; j++) mu[j] += r[j] / X.length;
+  for (const r of X) for (let j = 0; j < P; j++) sd[j] += (r[j] - mu[j]) ** 2 / X.length;
+  for (let j = 0; j < P; j++) sd[j] = Math.sqrt(sd[j]) > 1e-9 ? Math.sqrt(sd[j]) : 1;
+  const Q = P + 1, A = Array.from({ length: Q }, () => new Float64Array(Q)), bx = new Float64Array(Q), by = new Float64Array(Q), z = new Float64Array(Q);
+  keep.forEach((s, i) => {
+    z[0] = 1; for (let j = 0; j < P; j++) z[j + 1] = (X[i][j] - mu[j]) / sd[j];
+    for (let a = 0; a < Q; a++) { const za = z[a]; if (!za) continue; bx[a] += za * s.x; by[a] += za * s.y; const Ra = A[a]; for (let c = a; c < Q; c++) Ra[c] += za * z[c]; }
+  });
+  for (let a = 0; a < Q; a++) for (let c = 0; c < a; c++) A[a][c] = A[c][a];
+  const lam = m.ft === 'rich' ? Math.pow(10, S.opt.lam10) : 1e-3 * keep.length;
+  for (let a = 1; a < Q; a++) A[a][a] += lam;
+  const W = solveN(A.map((r) => Array.from(r)), [Array.from(bx), Array.from(by)]);
+  Object.assign(m, { mu: Array.from(mu), sd: Array.from(sd), W, n: keep.length,
+    head0: { hx: median(keep.map((s) => s.f.hx)), hy: median(keep.map((s) => s.f.hy)), hs: median(keep.map((s) => s.f.hs)), dist: median(keep.map((s) => s.f.dist)) } });
+  return m;
+}
+function predict(m, f) {
+  const x = fvec(m, f);
+  let px = m.W[0][0], py = m.W[1][0];
+  for (let j = 0; j < x.length; j++) { const zz = (x[j] - m.mu[j]) / m.sd[j]; px += m.W[0][j + 1] * zz; py += m.W[1][j + 1] * zz; }
+  return [Math.max(-0.25, Math.min(1.25, px + m.off[0])), Math.max(-0.25, Math.min(1.25, py + m.off[1]))];
+}
+
+/* ── filters ── */
+function oneEuro(minC, beta) {
+  let xp = null, dxp = 0, tp = 0;
+  const al = (c, dt) => { const r = 2 * Math.PI * c * dt; return r / (r + 1); };
+  return (x, t) => {
+    if (xp === null) { xp = x; tp = t; return x; }
+    const dt = Math.max(1e-3, (t - tp) / 1000); tp = t;
+    if (dt > 0.3) { xp = x; dxp = 0; return x; }
+    const mc = minC !== undefined ? minC : 0.05 + 4 * Math.pow(1 - S.opt.smooth, 2), dx = (x - xp) / dt;
+    dxp += al(1, dt) * (dx - dxp);
+    xp += al(mc + (beta !== undefined ? beta : 0.6) * Math.abs(dxp), dt) * (x - xp);
+    return xp;
+  };
+}
+function kalman1() {
+  let x = null, v = 0, P00 = 1, P01 = 0, P10 = 0, P11 = 1, tp = 0;
+  return (zv, t) => {
+    if (x === null) { x = zv; tp = t; return zv; }
+    const dt = Math.max(1e-3, (t - tp) / 1000); tp = t;
+    if (dt > 0.3) { x = zv; v = 0; P00 = 1; P01 = P10 = 0; P11 = 1; return zv; }
+    const q = Math.pow(10, S.opt.kq), R = (S.model && S.model.Rn) || 0.03 * 0.03;
+    x += v * dt;
+    const a00 = P00 + dt * (P10 + P01) + dt * dt * P11 + q * dt * dt * dt / 3, a01 = P01 + dt * P11 + q * dt * dt / 2, a10 = P10 + dt * P11 + q * dt * dt / 2, a11 = P11 + q * dt;
+    const Sx = a00 + R, K0 = a00 / Sx, K1 = a10 / Sx, y = zv - x;
+    x += K0 * y; v += K1 * y;
+    P00 = (1 - K0) * a00; P01 = (1 - K0) * a01; P10 = a10 - K1 * a00; P11 = a11 - K1 * a01;
+    return x;
+  };
+}
+const FIL = { euro: [oneEuro(), oneEuro()], kalman: [kalman1(), kalman1()] };
+const filt = (p, t) => (S.opt.filter === 'none' ? p : [FIL[S.opt.filter][0](p[0], t), FIL[S.opt.filter][1](p[1], t)]);
+
+/* ── frame loop ── */
+const BUF = [];
+let fpsN = 0, fpsT = performance.now(), FPS = 0, GAZE = null;
+const STAGE = { onFrame: null, draw: null };
+function tick() {
+  requestAnimationFrame(tick);
+  const v = CAM.video;
+  if (CAM.ready && v.readyState >= 2 && v.currentTime !== CAM.lastT) {
+    CAM.lastT = v.currentTime;
+    const now = performance.now();
+    let f = null;
+    try { f = detect(now); } catch (e) { /* skip */ }
+    const fr = { t: now, f, p: null, g: null };
+    if (f && S.model) { fr.p = predict(S.model, f); if (!f.blink) fr.g = filt(fr.p, now); }
+    if (fr.g) GAZE = fr; else if (!f) GAZE = null;
+    BUF.push(fr); while (BUF.length && BUF[0].t < now - 20000) BUF.shift();
+    CAM.lm = f; fpsN++;
+    if (now - fpsT > 1000) { FPS = fpsN * 1000 / (now - fpsT); fpsN = 0; fpsT = now; if (S.page === 'setup') refresh(); }
+    if (STAGE.onFrame) STAGE.onFrame(fr);
+  }
+  if (S.page === 'setup' && CAM.on) drawPreview();
+  if (STAGE.draw) STAGE.draw();
+}
+requestAnimationFrame(tick);
+
+/* ── setup: camera preview with a face guide ── */
+function drawPreview() {
+  const c = $('cv'), r = c.getBoundingClientRect(), k = devicePixelRatio || 1, v = CAM.video;
+  if (c.width !== Math.round(r.width * k) || c.height !== Math.round(r.height * k)) { c.width = Math.round(r.width * k); c.height = Math.round(r.height * k); }
+  const g = c.getContext('2d'), W = c.width, H = c.height;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  if (!v.videoWidth) return;
+  const s = Math.max(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * s, dh = v.videoHeight * s, ox = (W - dw) / 2, oy = (H - dh) / 2;
+  g.save(); g.translate(W, 0); g.scale(-1, 1); g.drawImage(v, W - ox - dw, oy, dw, dh); g.restore();
+  const f = CAM.lm, okPos = f && Math.abs(f.hx - 0.5) < 0.18 && Math.abs(f.hy - 0.45) < 0.2 && f.dist > 40 && f.dist < 90;
+  g.strokeStyle = f ? (okPos ? 'rgba(127,214,162,0.9)' : 'rgba(232,200,111,0.9)') : 'rgba(233,238,244,0.4)'; g.lineWidth = 2.5 * k; g.setLineDash([8 * k, 6 * k]);
+  g.beginPath(); g.ellipse(W / 2, H * 0.47, H * 0.2, H * 0.28, 0, 0, 7); g.stroke(); g.setLineDash([]);
+  if (f) {
+    g.fillStyle = 'rgba(143,200,232,0.9)';
+    for (const E of EYES) for (const j of [E.a, E.b, E.t, E.bo, E.iris[0]]) { const p = f.lm[j]; g.beginPath(); g.arc(W - (ox + p.x * dw), oy + p.y * dh, (j === E.iris[0] ? 3 : 1.6) * k, 0, 7); g.fill(); }
+  }
+}
+function chips() {
+  const f = CAM.lm, c = [];
+  if (!CAM.on) c.push(['Camera off', '']);
+  else if (!CAM.ready) c.push(['Loading face tracker …', 'warm']);
+  else if (!f) c.push(['No face found', 'bad']);
+  else {
+    c.push(['Face found', 'ok']);
+    c.push([`${f.dist.toFixed(0)} cm`, f.dist < 40 ? 'warm' : f.dist > 90 ? 'warm' : 'ok']);
+    if (Math.abs(f.yaw) > 0.25 || Math.abs(f.pitch) > 0.25) c.push(['Face the screen', 'warm']);
+  }
+  if (CAM.res) c.push([`${CAM.res.w} × ${CAM.res.h} · ${FPS.toFixed(0)} fps`, FPS && FPS < 20 ? 'warm' : '']);
+  $('chips').innerHTML = c.map(([t, cl]) => `<span class="chip ${cl}">${t}</span>`).join('');
+}
+function refresh() {
+  chips();
+  const files = S.files.length, face = CAM.ready && !!CAM.lm;
+  $('checks').innerHTML = `<span class="${files ? 'ok' : ''}">${files ? '✓' : '○'} ${files ? files + ' file' + (files > 1 ? 's' : '') : 'Add media'}</span><span class="${face ? 'ok' : ''}">${face ? '✓' : '○'} ${CAM.ready ? (face ? 'Face found' : 'Find your face') : 'Turn on the camera'}</span>`;
+  $('go').disabled = !(files && CAM.ready);
+}
+
+/* ── setup: media ── */
+function addFiles(list) {
+  for (const f of list) {
+    const type = f.type.startsWith('video') ? 'video' : f.type.startsWith('image') ? 'image' : null;
+    if (!type || S.files.some((x) => x.name === f.name && x.size === f.size)) continue;
+    const it = { name: f.name, type, size: f.size, url: URL.createObjectURL(f), dur: null };
+    if (type === 'video') { const v = document.createElement('video'); v.preload = 'metadata'; v.src = it.url; v.onloadedmetadata = () => { it.dur = v.duration; buildFiles(); }; }
+    S.files.push(it);
+  }
+  buildFiles(); refresh();
+  if (S.page === 'results' && RV && RV.missing) openRec(S.sel);
+}
+function buildFiles() {
+  const L = $('files'); L.innerHTML = '';
+  S.files.forEach((f, i) => {
+    const d = document.createElement('div'); d.className = 'file';
+    const th = f.type === 'image' ? `<img src="${f.url}" alt="">` : `<video src="${f.url}#t=0.5" muted preload="metadata"></video>`;
+    const meta = f.type === 'image' ? `image · ${S.opt.imgDur} s` : `video${f.dur ? ' · ' + fmtT(f.dur) : ''}`;
+    d.innerHTML = `<div class="th">${th}</div><div class="nm">${esc(f.name)}<div class="meta">${meta}</div></div><button class="ib" title="Earlier">↑</button><button class="ib" title="Later">↓</button><button class="ib" title="Remove">✕</button>`;
+    const [up, dn, rm] = d.querySelectorAll('.ib');
+    up.onclick = () => { if (i) { [S.files[i - 1], S.files[i]] = [S.files[i], S.files[i - 1]]; buildFiles(); } };
+    dn.onclick = () => { if (i < S.files.length - 1) { [S.files[i + 1], S.files[i]] = [S.files[i], S.files[i + 1]]; buildFiles(); } };
+    rm.onclick = () => { URL.revokeObjectURL(f.url); S.files.splice(i, 1); buildFiles(); refresh(); };
+    L.appendChild(d);
+  });
+}
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtT = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+$('drop').onclick = () => $('fin').click();
+$('fin').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
+for (const ev of ['dragover', 'dragenter']) addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.add('over'); });
+addEventListener('dragleave', () => $('drop').classList.remove('over'));
+addEventListener('drop', (e) => { e.preventDefault(); $('drop').classList.remove('over'); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
+/* ── setup: controls ── */
+function row(P, label, hint, ctl) { const r = document.createElement('div'); r.className = 'row'; r.innerHTML = `<label>${label}${hint ? `<small>${hint}</small>` : ''}</label>`; const c = document.createElement('div'); c.className = 'ctl'; c.append(...[].concat(ctl)); r.appendChild(c); P.appendChild(r); return r; }
+function toggle(key, cb) { const l = document.createElement('label'); l.className = 'sw'; l.innerHTML = `<input type="checkbox" ${S.opt[key] ? 'checked' : ''}><span></span>`; l.firstChild.onchange = (e) => { S.opt[key] = e.target.checked; saveOpt(); if (cb) cb(); }; return l; }
+function range(key, min, max, step, fmt, cb) {
+  const i = document.createElement('input'), v = document.createElement('span'); v.className = 'val';
+  Object.assign(i, { type: 'range', min, max, step, value: S.opt[key] });
+  const show = () => (v.textContent = fmt ? fmt(S.opt[key]) : S.opt[key]); show();
+  i.oninput = () => { S.opt[key] = +i.value; show(); saveOpt(); if (cb) cb(); };
+  i.ondblclick = () => { S.opt[key] = OPT_DEF[key]; i.value = OPT_DEF[key]; show(); saveOpt(); if (cb) cb(); };
+  return [i, v];
+}
+function sel(key, opts, cb, num) { const s = document.createElement('select'); s.innerHTML = opts.map(([v, t]) => `<option value="${esc(String(v))}">${esc(t)}</option>`).join(''); s.value = String(S.opt[key]); s.onchange = () => { S.opt[key] = num ? +s.value : s.value; saveOpt(); if (cb) cb(); }; return s; }
+function seg(key, opts, cb) { const d = document.createElement('div'); d.className = 'seg'; for (const [v, t] of opts) { const b = document.createElement('button'); b.textContent = t; b.className = S.opt[key] === v ? 'on' : ''; b.onclick = () => { S.opt[key] = v; saveOpt(); [...d.children].forEach((x) => x.classList.toggle('on', x === b)); if (cb) cb(); }; d.appendChild(b); } return d; }
+function btn(t, fn) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = t; b.onclick = fn; return b; }
+function buildSession() {
+  const P = $('session'); P.innerHTML = '';
+  row(P, 'Image duration', 'How long each image stays on screen', range('imgDur', 1, 30, 0.5, (v) => v + ' s', buildFiles));
+  row(P, 'Mute videos', '', toggle('mute'));
+  row(P, 'Calibration', 'Quick ≈ 30 s · Standard ≈ 45 s · Thorough ≈ 75 s', seg('calib', [['quick', 'Quick'], ['standard', 'Standard'], ['thorough', 'Thorough']]));
+  row(P, 'Head movement compensation', 'Learns how your head turns shift the eyes', toggle('headComp'));
+  row(P, 'Voice guidance', 'Spoken instructions instead of text', toggle('voice', buildSession));
+  if (S.opt.voice) {
+    row(P, 'Language', '', seg('lang', [['en', 'English'], ['de', 'Deutsch']], () => { S.opt.voiceName = ''; saveOpt(); buildSession(); }));
+    const V = VOICES().filter((v) => v.lang.startsWith(S.opt.lang)), cur = pickVoice();
+    if (V.length) { if (cur && !S.opt.voiceName) S.opt.voiceName = cur.name; row(P, 'Voice', '', [sel('voiceName', V.map((v) => [v.name, v.name])), btn('Test', () => say('intro'))]); }
+    else row(P, 'Voice', 'No voice for this language in this browser; captions are used', []);
+    row(P, 'Speaking rate', '', range('rate', 0.7, 1.4, 0.05, (v) => v.toFixed(2) + '×'));
+  }
+  row(P, 'Captions', 'Show the instructions as text too', toggle('captions'));
+  row(P, 'Check before each file', 'A cross appears for a moment and corrects drift', toggle('drift'));
+  const sm = savedModel();
+  if (sm) row(P, 'Reuse the last calibration', `From ${sm.saved ? sm.saved.slice(0, 16).replace('T', ' ') : 'earlier'}${sm.err ? ', ' + sm.err.px.toFixed(0) + ' px' : ''} · only if nothing moved`, toggle('reuse'));
+  buildAdvanced();
+}
+function buildAdvanced() {
+  const P = $('advanced'); P.innerHTML = '';
+  row(P, 'Model', 'Eye region: 161 landmarks (EyeTrax) · Iris: iris offset only', sel('ft', [['rich', 'Eye region + head'], ['simple', 'Iris offset + head']]));
+  row(P, 'Ridge λ (eye region)', 'Higher = smoother, less detail', range('lam10', -2, 2, 0.1, (v) => Math.pow(10, v).toPrecision(2)));
+  row(P, 'Smoothing filter', '', sel('filter', [['euro', 'One Euro'], ['kalman', 'Kalman'], ['none', 'None']], buildAdvanced));
+  if (S.opt.filter === 'euro') row(P, 'Smoothing', '', range('smooth', 0, 1, 0.01, (v) => v.toFixed(2)));
+  if (S.opt.filter === 'kalman') row(P, 'Kalman agility', 'log10 of the process noise', range('kq', -1, 4, 0.1, (v) => v.toFixed(1)));
+  row(P, 'Head crop', 'Track the head and enlarge it for the landmarks', toggle('crop', () => { ROI.ok = false; }));
+  row(P, 'Head crop size', '', sel('cropRes', [[384, '384 px'], [512, '512 px'], [768, '768 px']], null, true));
+  row(P, 'Iris refine', 'From enlarged eye crops of the full frame', range('refine', 0, 1, 0.05, (v) => v.toFixed(2)));
+  row(P, 'Pursuit lag', 'How far the eyes trail a moving dot', range('lag', 0, 250, 10, (v) => v + ' ms'));
+  row(P, 'Gap between files', '', range('gap', 0, 3, 0.1, (v) => v.toFixed(1) + ' s'));
+  row(P, 'Show my gaze while playing', 'For testing; it draws the eye', toggle('showGaze'));
+  row(P, 'Fixation dispersion', 'I-DT: x range + y range', range('disp', 20, 200, 1, (v) => v + ' px'));
+  row(P, 'Fixation minimum', '', range('minFix', 50, 400, 10, (v) => v + ' ms'));
+  row(P, 'Open a saved session', '', btn('Load JSON', () => $('jin').click()));
+}
+function buildCamCtl() {
+  const P = $('camctl'); P.innerHTML = '';
+  if (!CAM.on) return;
+  const re = async () => { try { await openCam(); } catch (e) { log(`Camera: ${e.message}`); } buildCamCtl(); refresh(); };
+  if (CAM.list.length > 1) row(P, 'Camera', '', sel('camId', [['', 'Default'], ...CAM.list.map((d, i) => [d.deviceId, d.label || 'Camera ' + (i + 1)])], re));
+  row(P, 'Resolution', CAM.res ? `Delivered ${CAM.res.w} × ${CAM.res.h}${CAM.res.maxW ? ', camera maximum ' + CAM.res.maxW + ' × ' + CAM.res.maxH : ''}` : '', sel('camRes', [['max', 'Maximum'], ['2160', '4K'], ['1440', '1440p'], ['1080', '1080p'], ['720', '720p']], re));
+  row(P, 'Prefer 30 fps', 'Smoother, may lower the resolution', toggle('fps30', re));
+}
+$('bcam').onclick = startCam;
+
+/* ── stage helpers ── */
+const stg = $('stage'), sc = $('sc');
+const SW = () => stg.clientWidth, SH = () => stg.clientHeight;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function sctx() { const k = devicePixelRatio || 1, w = SW() * k, h = SH() * k; if (sc.width !== w || sc.height !== h) { sc.width = w; sc.height = h; } const g = sc.getContext('2d'); g.setTransform(k, 0, 0, k, 0, 0); g.clearRect(0, 0, SW(), SH()); return g; }
+function marker(g, x, y, r, a = 1) {
+  g.globalAlpha = a; g.fillStyle = '#e8c86f'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  g.fillStyle = '#000'; g.beginPath(); g.arc(x, y, Math.max(1.5, r * 0.22), 0, 7); g.fill(); g.globalAlpha = 1;
+}
+function drawGaze(g) { if (GAZE && GAZE.g && performance.now() - GAZE.t < 300) { g.fillStyle = 'rgba(143,200,232,0.7)'; g.beginPath(); g.arc(GAZE.g[0] * SW(), GAZE.g[1] * SH(), 10, 0, 7); g.fill(); } }
+const framesIn = (t0, t1) => BUF.filter((b) => b.t >= t0 && b.t <= t1 && b.f && !b.f.blink);
+class Abort extends Error {}
+let RUN = null;                                        // { abort: bool }
+const check = () => { if (RUN && RUN.abort) throw new Abort(); };
+const stopRun = () => { if (RUN) RUN.abort = true; if (window.speechSynthesis) speechSynthesis.cancel(); };
+addEventListener('keydown', (e) => { if (S.page === 'stage' && e.key === 'Escape') { e.preventDefault(); stopRun(); } });
+// in fullscreen the browser takes Esc itself: leaving fullscreen stops the session
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && S.page === 'stage' && RUN && RUN.fs) stopRun(); });
+
+/* the marker: position over time (for the pursuit lag) and an animator */
+const MK = { x: 0.5, y: 0.5, r: 9, a: 1, hist: [] };
+function mkSet(x, y) { MK.x = x; MK.y = y; MK.hist.push([performance.now(), x, y]); if (MK.hist.length > 600) MK.hist.shift(); }
+function mkAt(t) { const H = MK.hist; for (let i = H.length - 1; i >= 0; i--) if (H[i][0] <= t) return [H[i][1], H[i][2]]; return H.length ? [H[0][1], H[0][2]] : [MK.x, MK.y]; }
+async function moveTo(x, y, ms) {
+  const x0 = MK.x, y0 = MK.y, t0 = performance.now();
+  while (true) { check(); const u = Math.min(1, (performance.now() - t0) / ms), e = u * u * (3 - 2 * u); mkSet(x0 + (x - x0) * e, y0 + (y - y0) * e); if (u >= 1) break; await wait(8); }
+}
+// collect frames of a kind while fn runs; the target is the marker (lagged for pursuit)
+async function collect(kind, samples, fn, lag = 0) {
+  const prev = STAGE.onFrame;
+  STAGE.onFrame = (fr) => { if (fr.f && !fr.f.blink) { const [x, y] = mkAt(fr.t - lag); samples.push({ f: fr.f, x, y, kind }); } };
+  try { await fn(); } finally { STAGE.onFrame = prev; }
+}
+async function waitFace() {
+  let miss = performance.now();
+  while (true) { check(); if (CAM.lm) { if (performance.now() - miss > 0) return; } else if (performance.now() - miss > 1500) { await say('noface'); miss = performance.now(); } await wait(100); }
+}
+
+/* ── calibration ── */
+function points(n) {
+  const ix = 0.05, iy = 0.07, c = [[ix, iy], [1 - ix, iy], [1 - ix, 1 - iy], [ix, 1 - iy]];
+  if (n === 5) return [[0.5, 0.5], ...c];
+  return [[0.5, 0.5], c[0], [0.5, iy], c[1], [1 - ix, 0.5], c[2], [0.5, 1 - iy], c[3], [ix, 0.5]];
+}
+async function calibrate() {
+  const P = CALIB[S.opt.calib], samples = [];
+  MK.r = 9; MK.a = 1; mkSet(0.5, 0.5);
+  STAGE.draw = () => { const g = sctx(); marker(g, MK.x * SW(), MK.y * SH(), MK.r, MK.a); };
+  await waitFace();
+  await say('intro'); check();
+  // fixation points: travel, settle (pulse), capture (shrink)
+  for (let r = 0; r < P.rounds; r++) {
+    const pts = points(P.pts); if (r % 2) pts.reverse();
+    for (const [x, y] of pts) {
+      await moveTo(x, y, 900);
+      const t0 = performance.now(); while (performance.now() - t0 < 450) { check(); MK.r = 9 + 4 * Math.sin((performance.now() - t0) / 450 * Math.PI); await wait(16); }
+      await collect('point', samples, async () => { const t1 = performance.now(); while (performance.now() - t1 < 800) { check(); MK.r = 9 - 5 * (performance.now() - t1) / 800; await wait(16); } });
+      MK.r = 9;
+    }
+  }
+  // smooth pursuit: Lissajous 3 : 2, slow at the ends
+  await moveTo(0.5, 0.5, 700);
+  await say('pursuit'); check();
+  const D = P.pursuit * 1000, cur = (ms) => { const u = Math.max(0, Math.min(1, ms / D)), ph = (u - Math.sin(2 * Math.PI * u) / (2 * Math.PI) * 0.7) * 2 * Math.PI; return [0.5 + 0.42 * Math.sin(3 * ph), 0.5 + 0.42 * Math.sin(2 * ph)]; };
+  const tp = performance.now();
+  await collect('pursuit', samples, async () => { while (true) { check(); const e = performance.now() - tp; if (e >= D) break; const [x, y] = cur(e); mkSet(x, y); await wait(8); } }, S.opt.lag);
+  // head sweep: the marker stays, the head moves
+  if (S.opt.headComp) {
+    await moveTo(0.5, 0.5, 700);
+    await say('sweep'); check();
+    const per = P.sweep * 1000 / 5;
+    await collect('sweep', samples, async () => {
+      for (const k of ['left', 'right', 'mid', 'up', 'down']) { const t0 = performance.now(); await say(k); check(); const rest = per - (performance.now() - t0); if (rest > 0) await wait(rest); check(); }
+    });
+  }
+  STAGE.draw = () => { const g = sctx(); marker(g, SW() / 2, SH() / 2, 6, 0.5); };
+  await wait(30);
+  return fit(samples);
+}
+async function validate() {
+  const V = [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]], res = [];
+  MK.r = 9; mkSet(0.5, 0.5);
+  STAGE.draw = () => { const g = sctx(); marker(g, MK.x * SW(), MK.y * SH(), MK.r); };
+  await say('check'); check();
+  for (const [x, y] of V) {
+    await moveTo(x, y, 800);
+    const t0 = performance.now(); await wait(1300); check();
+    const fr = framesIn(t0 + 500, t0 + 1300).filter((b) => b.p);
+    if (fr.length < 4) continue;
+    const p = [median(fr.map((b) => b.p[0])), median(fr.map((b) => b.p[1]))];
+    const sdn = Math.sqrt(fr.reduce((a, b) => a + (b.p[0] - p[0]) ** 2 + (b.p[1] - p[1]) ** 2, 0) / fr.length / 2);
+    res.push({ e: Math.hypot((p[0] - x) * SW(), (p[1] - y) * SH()), sd: sdn * Math.hypot(SW(), SH()) / Math.SQRT2, sdn });
+  }
+  if (!res.length) return null;
+  const px = res.reduce((a, r) => a + r.e, 0) / res.length, prec = res.reduce((a, r) => a + r.sd, 0) / res.length, sdn = res.reduce((a, r) => a + r.sdn, 0) / res.length;
+  const dist = S.model.head0.dist || 60, deg = Math.atan(px / 96 * 2.54 / dist) * 180 / Math.PI;
+  return { px, prec, deg, Rn: Math.max(1e-6, sdn * sdn), n: res.length };
+}
+
+/* ── the session: calibrate, check, play ── */
+function rectFor(nw, nh) { const W = SW(), H = SH(), s = Math.min(W / nw, H / nh), w = nw * s, h = nh * s; return { x: (W - w) / 2, y: (H - h) / 2, w, h }; }
+async function driftCheck() {
+  STAGE.draw = () => { const g = sctx(), X = SW() / 2, Y = SH() / 2; g.strokeStyle = '#e8c86f'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(X - 14, Y); g.lineTo(X + 14, Y); g.moveTo(X, Y - 14); g.lineTo(X, Y + 14); g.stroke(); };
+  const t0 = performance.now(); await wait(1400); check();
+  const fr = framesIn(t0 + 600, t0 + 1400).filter((b) => b.p);
+  if (fr.length < 4) return null;
+  const m = S.model, p = [median(fr.map((b) => b.p[0])), median(fr.map((b) => b.p[1]))], d = [0.5 - (p[0] - m.off[0]), 0.5 - (p[1] - m.off[1])];
+  if (Math.hypot(d[0] - m.off[0], d[1] - m.off[1]) > 0.2) return null;   // too far: probably not looking at the cross
+  m.off = d; return d;
+}
+async function playFile(F) {
+  const el = document.createElement(F.type === 'video' ? 'video' : 'img');
+  el.src = F.url;
+  if (F.type === 'video') { el.muted = S.opt.mute; el.playsInline = true; el.preload = 'auto'; }
+  await new Promise((r) => { if (F.type === 'video') { el.onloadedmetadata = r; el.onerror = r; } else { el.onload = r; el.onerror = r; } });
+  const nw = el.videoWidth || el.naturalWidth || 16, nh = el.videoHeight || el.naturalHeight || 9, R = rectFor(nw, nh);
+  Object.assign(el.style, { left: R.x + 'px', top: R.y + 'px', width: R.w + 'px', height: R.h + 'px' });
+  stg.insertBefore(el, sc);
+  const rec = { name: F.name, type: F.type, nw, nh, rect: R, sw: SW(), sh: SH(), t0: 0, dur: 0, samples: [], drift: S.model.off.slice() };
+  S.rec.push(rec);
+  STAGE.draw = () => { const g = sctx(); if (S.opt.showGaze) drawGaze(g); };
+  STAGE.onFrame = (fr) => {
+    if (!rec.t0) return;
+    const s = { t: Math.round(fr.t - rec.t0), vt: F.type === 'video' ? +el.currentTime.toFixed(3) : null, ok: !!fr.g, blink: !!(fr.f && fr.f.blink) };
+    if (fr.f) { s.yaw = +(fr.f.yaw * 57.3).toFixed(1); s.pitch = +(fr.f.pitch * 57.3).toFixed(1); s.roll = +(fr.f.roll * 57.3).toFixed(1); s.dist = +fr.f.dist.toFixed(1); }
+    if (fr.g) { const x = fr.g[0] * SW(), y = fr.g[1] * SH(); s.x = Math.round(x); s.y = Math.round(y); s.rx = Math.round(fr.p[0] * SW()); s.ry = Math.round(fr.p[1] * SH()); s.u = +((x - R.x) / R.w).toFixed(4); s.v = +((y - R.y) / R.h).toFixed(4); }
+    rec.samples.push(s);
+  };
+  rec.t0 = performance.now();
+  try {
+    await new Promise((res) => {
+      let done = false; const fin = () => { if (!done) { done = true; clearInterval(iv); res(); } };
+      const iv = setInterval(() => { if (RUN.abort) fin(); }, 100);
+      if (F.type === 'video') { el.onended = fin; el.play().catch(() => { el.muted = true; el.play().catch(fin); }); } else setTimeout(fin, S.opt.imgDur * 1000);
+    });
+  } finally {
+    rec.dur = performance.now() - rec.t0; STAGE.onFrame = null;
+    if (el.pause) el.pause(); el.remove();
+  }
+}
+async function session(recal) {
+  if (!CAM.ready || !S.files.length) return;
+  S.page = 'stage'; RUN = { abort: false };
+  document.body.classList.add('lock'); stg.classList.add('on'); $('cap').textContent = '';
+  setStep(2);
+  try { if (!document.fullscreenElement) await stg.requestFullscreen(); RUN.fs = !!document.fullscreenElement; } catch (e) { /* windowed */ }
+  await wait(500);
+  try {
+    // calibration (reuse, or up to two attempts)
+    const sm = savedModel();
+    if (!recal && S.model) { /* run again: keep the current calibration */ }
+    else if (S.opt.reuse && sm) S.model = { ...sm, off: [0, 0] };
+    else {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        S.model = await calibrate(); check();
+        if (!S.model) { await say('poor'); continue; }
+        const v = await validate(); check();
+        if (v) { S.model.err = v; S.model.Rn = v.Rn; }
+        const px = v ? v.px : 1e9;
+        if (px < 90) { await say('good'); break; }
+        if (px < 170 || attempt === 1) { await say('fair'); break; }
+        await say('poor');
+      }
+      if (!S.model) throw new Abort();
+      storeModel();
+    }
+    check();
+    STAGE.draw = () => sctx();
+    await say('start'); check();
+    S.rec = []; S.sel = 0;
+    for (const F of S.files) {
+      check();
+      if (S.opt.drift) await driftCheck();
+      check();
+      await playFile(F);
+      check();
+      if (S.opt.gap > 0) { STAGE.draw = () => sctx(); await wait(S.opt.gap * 1000); }
+    }
+    await say('done');
+  } catch (e) {
+    if (!(e instanceof Abort)) { console.error(e); log(`Stopped: ${e.message}`); }
+    else say('stop');
+  }
+  STAGE.draw = null; STAGE.onFrame = null;
+  for (const el of [...stg.querySelectorAll('img,video')]) { if (el.pause) el.pause(); el.remove(); }
+  stg.classList.remove('on'); document.body.classList.remove('lock');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  RUN = null;
+  for (const r of S.rec) r.fix = fixations(r);
+  if (S.rec.length) showResults(); else { S.page = 'setup'; setStep(1); buildSession(); refresh(); }
+}
+$('go').onclick = () => session(true);
+
+/* ── analysis ── */
+function fixations(rec) {
+  const P = rec.samples.filter((s) => s.ok), out = [], D = S.opt.disp, MIN = S.opt.minFix;
+  let i = 0;
+  while (i < P.length) {
+    let j = i, x0 = P[i].x, x1 = x0, y0 = P[i].y, y1 = y0;
+    while (j + 1 < P.length && P[j + 1].t - P[j].t < 150) {
+      const q = P[j + 1], nx0 = Math.min(x0, q.x), nx1 = Math.max(x1, q.x), ny0 = Math.min(y0, q.y), ny1 = Math.max(y1, q.y);
+      if ((nx1 - nx0) + (ny1 - ny0) > D) break;
+      x0 = nx0; x1 = nx1; y0 = ny0; y1 = ny1; j++;
+    }
+    const d = P[j].t - P[i].t;
+    if (d >= MIN) {
+      const sg = P.slice(i, j + 1), x = sg.reduce((a, s) => a + s.x, 0) / sg.length, y = sg.reduce((a, s) => a + s.y, 0) / sg.length;
+      out.push({ t: P[i].t, d, x: Math.round(x), y: Math.round(y), u: +((x - rec.rect.x) / rec.rect.w).toFixed(4), v: +((y - rec.rect.y) / rec.rect.h).toFixed(4), vt: P[i].vt });
+      i = j + 1;
+    } else i++;
+  }
+  return out;
+}
+function stats(rec) {
+  const n = rec.samples.length, ok = rec.samples.filter((s) => s.ok), on = ok.filter((s) => s.u >= 0 && s.u <= 1 && s.v >= 0 && s.v <= 1), fx = rec.fix || [];
+  return { n, valid: n ? ok.length / n : 0, onMedia: ok.length ? on.length / ok.length : 0, fix: fx.length, meanFix: fx.length ? fx.reduce((a, f) => a + f.d, 0) / fx.length : 0, hz: rec.dur ? n / rec.dur * 1000 : 0 };
+}
+
+/* ── results ── */
+function setStep(n) { [1, 2, 3].forEach((i) => $('st' + i).classList.toggle('on', i === n)); }
+let RV = null;
+function showResults() {
+  S.page = 'results'; setStep(3);
+  $('setup').style.display = 'none'; $('bar').style.display = 'none'; $('results').style.display = 'block';
+  buildResults(); openRec(Math.min(S.sel, S.rec.length - 1));
+}
+function backToSetup() {
+  if (RV && RV.el) { if (RV.el.pause) RV.el.pause(); RV.el.remove(); } RV = null;
+  S.page = 'setup'; setStep(1);
+  $('results').style.display = 'none'; $('setup').style.display = 'block'; $('bar').style.display = 'flex';
+  buildSession(); refresh();
+}
+function buildResults() {
+  const L = $('rlist'); L.innerHTML = '';
+  S.rec.forEach((r, i) => {
+    const st = stats(r), F = S.files.find((f) => f.name === r.name), d = document.createElement('div');
+    d.className = 'file' + (i === S.sel ? ' sel' : '');
+    const th = F ? (r.type === 'image' ? `<img src="${F.url}" alt="">` : `<video src="${F.url}#t=0.5" muted preload="metadata"></video>`) : '';
+    d.innerHTML = `<div class="th">${th}</div><div class="nm">${esc(r.name)}<div class="meta">${(st.valid * 100).toFixed(0)} % valid · ${st.fix} fixations</div></div>`;
+    d.onclick = () => openRec(i);
+    L.appendChild(d);
+  });
+  const r = S.rec[S.sel], m = S.model, P = $('rstats');
+  if (!r) { P.innerHTML = ''; return; }
+  const st = stats(r), hd = r.samples.filter((s) => s.yaw !== undefined);
+  const kv = (k, v) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`;
+  P.innerHTML = `<h2>${esc(r.name)}</h2>` + kv('Duration', `${(r.dur / 1000).toFixed(1)} s · ${st.hz.toFixed(0)} Hz`) + kv('Valid samples', `${(st.valid * 100).toFixed(0)} %`) + kv('Gaze on the media', `${(st.onMedia * 100).toFixed(0)} %`)
+    + kv('Fixations', `${st.fix} · ⌀ ${st.meanFix.toFixed(0)} ms`) + (hd.length ? kv('Head range', `yaw ${(Math.max(...hd.map((s) => s.yaw)) - Math.min(...hd.map((s) => s.yaw))).toFixed(0)}° · pitch ${(Math.max(...hd.map((s) => s.pitch)) - Math.min(...hd.map((s) => s.pitch))).toFixed(0)}°`) : '')
+    + (m && m.err ? kv('Calibration accuracy', `${m.err.px.toFixed(0)} px · ${m.err.deg.toFixed(1)}°`) : '');
+  const T2 = $('rtools'); T2.innerHTML = '';
+  const tg = (key, t) => { const l = document.createElement('label'); l.style.cssText = 'display:flex;gap:8px;align-items:center;color:var(--dim);font-size:13px'; l.append(toggle(key, drawReview), t); return l; };
+  T2.append(tg('heat', 'Heatmap'), tg('path', 'Scanpath'), tg('raw', 'Samples'));
+  const rl = (t, ...a) => { const l = document.createElement('label'); l.style.cssText = 'display:flex;gap:8px;align-items:center;color:var(--dim);font-size:13px'; l.append(t, ...range(...a)); return l; };
+  T2.append(rl('Radius', 'radius', 8, 150, 1, (v) => v + ' px', drawReview), rl('Opacity', 'alpha', 0.1, 1, 0.01, (v) => v.toFixed(2), drawReview));
+  if (r.type === 'video') T2.append(rl('Window', 'win', 0.2, 10, 0.1, (v) => v.toFixed(1) + ' s', drawReview));
+}
+function openRec(i) {
+  const rec = S.rec[i]; if (!rec) return;
+  S.sel = i;
+  if (RV && RV.el) { if (RV.el.pause) RV.el.pause(); RV.el.remove(); }
+  const F = S.files.find((f) => f.name === rec.name), el = document.createElement(rec.type === 'video' ? 'video' : 'img');
+  if (F) el.src = F.url;
+  if (rec.type === 'video') { el.controls = true; el.muted = S.opt.mute; el.playsInline = true; el.addEventListener('timeupdate', drawReview); el.addEventListener('seeked', drawReview); }
+  else el.addEventListener('load', drawReview);
+  $('view').insertBefore(el, $('ov'));
+  RV = { el, rec, missing: !F };
+  buildResults(); layoutReview();
+}
+function layoutReview() {
+  if (!RV) return;
+  const vw = $('view').clientWidth, vh = $('view').clientHeight, s = Math.min(vw / RV.rec.nw, vh / RV.rec.nh), w = RV.rec.nw * s, h = RV.rec.nh * s;
+  RV.box = { x: (vw - w) / 2, y: (vh - h) / 2, w, h };
+  Object.assign(RV.el.style, { left: RV.box.x + 'px', top: RV.box.y + 'px', width: w + 'px', height: h + 'px' });
+  drawReview();
+}
+function heatCanvas(samples, w, h, radius) {
+  const s2 = Math.min(1, 320 / w), gw = Math.max(8, Math.round(w * s2)), gh = Math.max(8, Math.round(h * s2)), G = new Float32Array(gw * gh);
+  const sg = Math.max(1, radius * s2), R = Math.ceil(sg * 2.5), K = [];
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) K.push([dx, dy, Math.exp(-(dx * dx + dy * dy) / (2 * sg * sg))]);
+  let prev = null;
+  for (const s of samples) {
+    if (!s.ok) { prev = null; continue; }
+    const wt = prev ? Math.min(100, s.t - prev.t) : 33; prev = s;
+    if (s.u < -0.05 || s.u > 1.05 || s.v < -0.05 || s.v > 1.05) continue;
+    const cx = Math.round(s.u * gw), cy = Math.round(s.v * gh);
+    for (const [dx, dy, k] of K) { const x = cx + dx, y = cy + dy; if (x >= 0 && y >= 0 && x < gw && y < gh) G[y * gw + x] += k * wt; }
+  }
+  let mx = 0; for (const v of G) if (v > mx) mx = v;
+  const c = document.createElement('canvas'); c.width = gw; c.height = gh;
+  if (!mx) return c;
+  const g = c.getContext('2d'), im = g.createImageData(gw, gh), ramp = [[0, [30, 60, 200]], [0.35, [40, 200, 160]], [0.6, [230, 220, 60]], [1, [235, 70, 40]]];
+  for (let i = 0; i < G.length; i++) {
+    const v = G[i] / mx; if (v < 0.02) continue;
+    let a = ramp[0], b = ramp[ramp.length - 1];
+    for (let k = 1; k < ramp.length; k++) if (v <= ramp[k][0]) { a = ramp[k - 1]; b = ramp[k]; break; }
+    const u = (v - a[0]) / Math.max(1e-6, b[0] - a[0]);
+    for (let ch = 0; ch < 3; ch++) im.data[i * 4 + ch] = a[1][ch] + (b[1][ch] - a[1][ch]) * u;
+    im.data[i * 4 + 3] = 255 * Math.min(1, Math.pow(v, 0.6)) * S.opt.alpha;
+  }
+  g.putImageData(im, 0, 0);
+  return c;
+}
+function drawOverlay(g, rec, box, t) {
+  const O = S.opt, isV = rec.type === 'video', inWin = (s) => !isV || (s.vt !== null && s.vt >= t - O.win && s.vt <= t + 0.04), smp = rec.samples.filter(inWin);
+  if (O.heat) { g.imageSmoothingEnabled = true; g.drawImage(heatCanvas(smp, box.w, box.h, O.radius), box.x, box.y, box.w, box.h); }
+  if (O.raw) { g.fillStyle = 'rgba(232,200,111,0.4)'; for (const s of smp) if (s.ok) g.fillRect(box.x + s.u * box.w - 1, box.y + s.v * box.h - 1, 2, 2); }
+  if (O.path) {
+    const F = (rec.fix || []).filter((f) => !isV || (f.vt !== null && f.vt >= t - O.win && f.vt <= t + 0.04));
+    g.strokeStyle = 'rgba(233,238,244,0.6)'; g.lineWidth = 1.2; g.beginPath();
+    F.forEach((f, i) => { const x = box.x + f.u * box.w, y = box.y + f.v * box.h; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    g.font = '11px Inter, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    F.forEach((f, i) => { const x = box.x + f.u * box.w, y = box.y + f.v * box.h, r = 5 + Math.sqrt(f.d) * 0.6; g.fillStyle = 'rgba(143,200,232,0.35)'; g.strokeStyle = 'rgba(143,200,232,0.95)'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#e9eef4'; g.fillText(String(i + 1), x, y); });
+    g.textBaseline = 'alphabetic';
+  }
+  if (isV) {
+    let best = null; for (const s of rec.samples) if (s.ok && s.vt !== null && Math.abs(s.vt - t) < 0.08 && (!best || Math.abs(s.vt - t) < Math.abs(best.vt - t))) best = s;
+    if (best) { g.strokeStyle = '#e8c86f'; g.lineWidth = 2; g.beginPath(); g.arc(box.x + best.u * box.w, box.y + best.v * box.h, 12, 0, 7); g.stroke(); }
+  }
+}
+function drawReview() {
+  if (!RV || S.page !== 'results') return;
+  const c = $('ov'), r = $('view').getBoundingClientRect(), k = devicePixelRatio || 1;
+  c.width = r.width * k; c.height = r.height * k; c.style.left = '0'; c.style.top = '0'; c.style.width = r.width + 'px'; c.style.height = r.height + 'px';
+  const g = c.getContext('2d'); g.setTransform(k, 0, 0, k, 0, 0);
+  if (RV.missing) { g.strokeStyle = 'rgba(233,238,244,0.15)'; g.strokeRect(RV.box.x, RV.box.y, RV.box.w, RV.box.h); g.fillStyle = '#8b97a5'; g.font = '13px Inter'; g.fillText('Add this file in the setup to see it here', RV.box.x + 12, RV.box.y + 22); }
+  drawOverlay(g, RV.rec, RV.box, RV.rec.type === 'video' ? RV.el.currentTime || 0 : 0);
+}
+(function rl() { if (S.page === 'results' && RV && RV.el.tagName === 'VIDEO' && !RV.el.paused) drawReview(); requestAnimationFrame(rl); })();
+addEventListener('resize', () => { if (S.page === 'results') layoutReview(); });
+$('back').onclick = backToSetup;
+$('again').onclick = () => { backToSetup(); session(false); };
+
+/* ── export ── */
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+$('xcsv').onclick = () => {
+  const L = ['file,type,t_ms,video_s,valid,blink,x_px,y_px,raw_x_px,raw_y_px,u,v,head_yaw_deg,head_pitch_deg,head_roll_deg,distance_cm,screen_w,screen_h'];
+  for (const r of S.rec) for (const s of r.samples) L.push([JSON.stringify(r.name), r.type, s.t, s.vt ?? '', s.ok ? 1 : 0, s.blink ? 1 : 0, s.x ?? '', s.y ?? '', s.rx ?? '', s.ry ?? '', s.u ?? '', s.v ?? '', s.yaw ?? '', s.pitch ?? '', s.roll ?? '', s.dist ?? '', r.sw, r.sh].join(','));
+  download(new Blob([L.join('\n')], { type: 'text/csv' }), `itrack_samples_${stamp()}.csv`);
+  const F = ['file,index,t_ms,video_s,duration_ms,x_px,y_px,u,v'];
+  for (const r of S.rec) (r.fix || []).forEach((f, i) => F.push([JSON.stringify(r.name), i + 1, f.t, f.vt ?? '', f.d, f.x, f.y, f.u, f.v].join(',')));
+  setTimeout(() => download(new Blob([F.join('\n')], { type: 'text/csv' }), `itrack_fixations_${stamp()}.csv`), 300);
+};
+$('xjson').onclick = () => {
+  const m = S.model;
+  const o = { app: 'iTrack', version: VERSION, created: new Date().toISOString(), options: S.opt,
+    calibration: m ? { model: m.ft, head_compensation: m.head, frames: m.n, error_px: m.err ? m.err.px : null, precision_px: m.err ? m.err.prec : null, error_deg: m.err ? m.err.deg : null } : null,
+    files: S.rec.map((r) => ({ name: r.name, type: r.type, width: r.nw, height: r.nh, rect: r.rect, screen: [r.sw, r.sh], duration_ms: Math.round(r.dur), drift: r.drift, stats: stats(r), fixations: r.fix, samples: r.samples })) };
+  download(new Blob([JSON.stringify(o)], { type: 'application/json' }), `itrack_session_${stamp()}.json`);
+};
+$('xpng').onclick = () => {
+  if (!RV) return;
+  const rec = RV.rec, c = document.createElement('canvas'); c.width = rec.nw; c.height = rec.nh;
+  const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, rec.nw, rec.nh);
+  if (!RV.missing) try { g.drawImage(RV.el, 0, 0, rec.nw, rec.nh); } catch (e) { /* no frame */ }
+  g.save(); g.scale(rec.nw / RV.box.w, rec.nw / RV.box.w);
+  drawOverlay(g, rec, { x: 0, y: 0, w: RV.box.w, h: RV.box.h }, rec.type === 'video' ? RV.el.currentTime || 0 : 0); g.restore();
+  c.toBlob((b) => download(b, `itrack_${rec.name.replace(/\.[^.]+$/, '')}.png`), 'image/png');
+};
+$('jin').onchange = (e) => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const o = JSON.parse(rd.result);
+      S.rec = o.files.map((f) => ({ name: f.name, type: f.type, nw: f.width, nh: f.height, rect: f.rect, sw: f.screen[0], sh: f.screen[1], dur: f.duration_ms, drift: f.drift, samples: f.samples, fix: f.fixations }));
+      for (const r of S.rec) if (!r.fix) r.fix = fixations(r);
+      S.sel = 0; showResults();
+    } catch (err) { log(`Not an iTrack session: ${err.message}`); }
+  };
+  rd.readAsText(file);
+};
+
+/* ── start ── */
+buildSession(); buildFiles(); refresh();
+log(window.isSecureContext ? '' : 'Open this page over https or http://localhost so the camera can be used.');
+</script>
+</body>
+</html>
